@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>세화여고 212 캘린더</title>
     <!-- 파이어베이스 라이브러리 로드 (Realtime Database 사용) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -120,7 +120,6 @@
             background-color: #FDFBF7;
         }
 
-        /* 오늘 날짜 특별 하이라이트 스타일 */
         .today {
             background-color: #FFF9F0 !important;
             border: 2px solid #C2A383 !important;
@@ -285,6 +284,63 @@
             font-family: inherit;
             margin-left: 5px;
         }
+
+        /* 📱 모바일 화면 최적화 스타일 (화면 너비 600px 이하일 때 자동 적용) */
+        @media (max-width: 600px) {
+            body {
+                padding: 8px; /* 바깥 여백 대폭 축소 */
+            }
+
+            .calendar-container {
+                padding: 12px 8px; /* 내부 여백 축소 */
+                border-width: 2px;
+                border-radius: 10px;
+            }
+
+            .calendar-header {
+                padding-bottom: 10px;
+                margin-bottom: 15px;
+            }
+
+            .main-title {
+                font-size: 18px; /* 타이틀 크기 축소 */
+            }
+
+            .calendar-controls {
+                font-size: 15px;
+                margin-bottom: 12px;
+                gap: 10px;
+            }
+
+            .btn-nav {
+                padding: 3px 8px;
+                font-size: 12px;
+            }
+
+            .calendar-grid th {
+                font-size: 11px;
+                padding: 4px 2px;
+            }
+
+            .calendar-grid td {
+                height: 75px; /* 세로 늘어짐 방지를 위해 높이를 줄임 */
+                font-size: 11px;
+                padding: 4px 1px;
+            }
+
+            .event-badge {
+                font-size: 8px; /* 배지 글씨 크기 모바일 최적화 */
+                padding: 1px 2px;
+                margin-top: 2px;
+                line-height: 1.1;
+                border-radius: 2px;
+            }
+
+            .modal-box {
+                width: 90%; /* 모바일에서는 팝업창도 화면 비율에 맞추기 */
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -349,19 +405,16 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // 달 이동 제한 범위 (2026년 7월 ~ 2027년 2월)
         const START_LIMIT = new Date(2026, 6, 1);
         const END_LIMIT = new Date(2027, 1, 1);
 
-        // 실제 접속한 오늘 날짜 구하기
         const today = new Date();
         const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-        // ★ [스마트 첫 화면] 들어온 날짜에 맞춰 시작 달 결정하기 (단, 제한 범위를 벗어나면 최소/최대 달로 고정)
         let currentDate = new Date();
         if (currentDate < START_LIMIT) {
             currentDate = new Date(START_LIMIT);
-        } else if (currentDate > new Date(2027, 1, 28)) { // 27년 2월 말일 기준
+        } else if (currentDate > new Date(2027, 1, 28)) {
             currentDate = new Date(END_LIMIT);
         }
 
@@ -382,7 +435,6 @@
             const month = currentDate.getMonth();
             document.getElementById('currentYearMonth').innerText = `${year}년 ${month + 1}월`;
 
-            // 이전, 다음 달 이동 제한 버튼 처리
             document.getElementById('btnPrev').disabled = (year === START_LIMIT.getFullYear() && month === START_LIMIT.getMonth());
             document.getElementById('btnNext').disabled = (year === END_LIMIT.getFullYear() && month === END_LIMIT.getMonth());
 
