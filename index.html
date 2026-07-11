@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>세화여고 212 캘린더</title>
+    <!-- 파이어베이스 라이브러리 로드 (Realtime Database 사용) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
+    <style>
+        @font-face {
+            font-family: 'MaruMinya';
+            src: url('./MaruMinya.woff2') format('woff2'),
+                 url('./MaruMinya.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        body {
+            font-family: 'MaruMinya', 'Malgun Gothic', sans-serif;
+            background-color: #F9F5EB;
+            color: #2C1A11;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .calendar-container {
+            width: 100%;
+            max-width: 900px;
+            background: #FDFBF7;
+            padding: 30px;
+            border: 3px solid #C2A383;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(194, 163, 131, 0.15);
+            box-sizing: border-box;
+        }
+
+        .calendar-header {
+            text-align: center;
+            border-bottom: 2px dashed #E6DEC9;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        .main-title {
+            font-size: 26px;
+            font-weight: bold;
+            margin: 0;
+            line-height: 1.3;
+            letter-spacing: -0.5px;
+        }
+
+        .calendar-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .btn-nav {
+            background: none;
+            border: 1px solid #C2A383;
+            color: #2C1A11;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            background-color: #FDFBF7;
+        }
+
+        .btn-nav:disabled {
+            border-color: #E0DCD3;
+            color: #E0DCD3;
+            cursor: not-allowed;
+        }
+
+        .calendar-grid {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #E6DEC9;
+            table-layout: fixed;
+        }
+
+        .calendar-grid th, .calendar-grid td {
+            width: 14.28%;
+            padding: 6px 4px;
+            text-align: center;
+            border: 1px solid #F4EFE3;
+        }
+
+        .calendar-grid th {
+            background-color: #FDFBF7;
+            color: #A78B71;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .calendar-grid td {
+            height: 110px;
+            vertical-align: top;
+            font-size: 13px;
+            position: relative;
+            cursor: pointer;
+            overflow-y: auto;
+        }
+
+        .calendar-grid td:hover:not(.other-month) {
+            background-color: #FDFBF7;
+        }
+
+        /* 오늘 날짜 특별 하이라이트 스타일 */
+        .today {
+            background-color: #FFF9F0 !important;
+            border: 2px solid #C2A383 !important;
+            font-weight: bold;
+            color: #C2A383;
+        }
+
+        .calendar-grid td.selected {
+            background-color: #E6DEC9 !important;
+            font-weight: bold;
+        }
+
+        .calendar-grid th:nth-child(7), .calendar-grid td:nth-child(7) { color: #8A9A86; }
+        .calendar-grid th:nth-child(1), .calendar-grid td:nth-child(1) { color: #C97A7A; }
+        .calendar-grid td.other-month { color: #E0DCD3 !important; cursor: default; }
+
+        .event-badge {
+            font-size: 10px;
+            background-color: #C2A383;
+            color: white;
+            padding: 2px 4px;
+            border-radius: 4px;
+            margin-top: 4px;
+            text-align: left;
+            word-break: break-all;
+            white-space: normal;
+            line-height: 1.2;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+
+        .modal-overlay.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .modal-box {
+            width: 340px;
+            background-color: #FFFFFF;
+            border: 2px solid #C2A383;
+            border-radius: 12px;
+            padding: 20px;
+            box-sizing: border-box;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #A78B71;
+        }
+
+        .form-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #E6DEC9;
+            padding-bottom: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #A78B71;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 9px;
+            border: 1px solid #C2A383;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 13px;
+            background-color: #FDFBF7;
+            color: #2C1A11;
+        }
+
+        .btn {
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .btn-save { background-color: #C2A383; color: white; width: 100%; margin-top: 5px; }
+
+        .selected-events-list {
+            margin-top: 15px;
+            border-top: 1px dashed #E6DEC9;
+            padding-top: 15px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        
+        .selected-events-list h4 {
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            color: #A78B71;
+        }
+
+        .saved-event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #FDFBF7;
+            border: 1px solid #E6DEC9;
+            padding: 6px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .saved-event-info {
+            flex: 1;
+            word-break: break-all;
+        }
+
+        .saved-event-time {
+            font-weight: bold;
+            color: #C2A383;
+            margin-right: 5px;
+        }
+
+        .btn-mini-delete {
+            background-color: #C97A7A;
+            color: white;
+            border: none;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="calendar-container">
+        <header class="calendar-header">
+            <h1 class="main-title">세화여고 212 화이팅! ✨</h1>
+        </header>
+
+        <div class="calendar-section">
+            <div class="calendar-controls">
+                <button id="btnPrev" class="btn-nav" onclick="moveMonth(-1)">&lt;</button>
+                <span id="currentYearMonth"></span>
+                <button id="btnNext" class="btn-nav" onclick="moveMonth(1)">&gt;</button>
+            </div>
+            <table class="calendar-grid">
+                <thead>
+                    <tr>
+                        <th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th>
+                    </tr>
+                </thead>
+                <tbody id="calendarBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+        <div class="modal-box">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <h3 class="form-title" id="formDateTitle">날짜를 선택하세요</h3>
+
+            <form id="eventForm" onsubmit="saveEvent(event)">
+                <div class="form-group">
+                    <label for="eventTime">시간 설정</label>
+                    <input type="time" id="eventTime" required>
+                </div>
+                <div class="form-group">
+                    <label for="eventText">일정 내용</label>
+                    <textarea id="eventText" placeholder="새로운 할 일을 입력하세요" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-save" id="btnSave">일정 추가하기</button>
+            </form>
+
+            <div class="selected-events-list" id="selectedEventsList" style="display: none;">
+                <h4>📌 등록된 일정 목록</h4>
+                <div id="listContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDD1RtC0hmX3qbQhfcoZfDjOx13TBjty6s",
+            authDomain: "sehwa-212-cal.firebaseapp.com",
+            databaseURL: "https://sehwa-212-cal-default-rtdb.firebaseio.com",
+            projectId: "sehwa-212-cal",
+            storageBucket: "sehwa-212-cal.firebasestorage.app",
+            messagingSenderId: "96132426906",
+            appId: "1:96132426906:web:3c3e4b638060ac5af4323"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 달 이동 제한 범위 (2026년 7월 ~ 2027년 2월)
+        const START_LIMIT = new Date(2026, 6, 1);
+        const END_LIMIT = new Date(2027, 1, 1);
+
+        // 실제 접속한 오늘 날짜 구하기
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        // ★ [스마트 첫 화면] 들어온 날짜에 맞춰 시작 달 결정하기 (단, 제한 범위를 벗어나면 최소/최대 달로 고정)
+        let currentDate = new Date();
+        if (currentDate < START_LIMIT) {
+            currentDate = new Date(START_LIMIT);
+        } else if (currentDate > new Date(2027, 1, 28)) { // 27년 2월 말일 기준
+            currentDate = new Date(END_LIMIT);
+        }
+
+        let selectedDateKey = null;
+        let eventsData = {}; 
+
+        database.ref('events').on('value', (snapshot) => {
+            const data = snapshot.val();
+            eventsData = data ? data : {};
+            renderCalendar();
+            if (selectedDateKey) {
+                renderSelectedEventsList();
+            }
+        });
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('currentYearMonth').innerText = `${year}년 ${month + 1}월`;
+
+            // 이전, 다음 달 이동 제한 버튼 처리
+            document.getElementById('btnPrev').disabled = (year === START_LIMIT.getFullYear() && month === START_LIMIT.getMonth());
+            document.getElementById('btnNext').disabled = (year === END_LIMIT.getFullYear() && month === END_LIMIT.getMonth());
+
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            const lastDate = new Date(year, month + 1, 0).getDate();
+            const prevLastDate = new Date(year, month, 0).getDate();
+
+            const calendarBody = document.getElementById('calendarBody');
+            calendarBody.innerHTML = '';
+
+            let dateHtml = '';
+            let dayCounter = 1;
+            let nextMonthDayCounter = 1;
+
+            for (let i = 0; i < 6; i++) {
+                dateHtml += '<tr>';
+                for (let j = 0; j < 7; j++) {
+                    if (i === 0 && j < firstDayIndex) {
+                        dateHtml += `<td class="other-month">${prevLastDate - firstDayIndex + j + 1}</td>`;
+                    } else if (dayCounter > lastDate) {
+                        dateHtml += `<td class="other-month">${nextMonthDayCounter++}</td>`;
+                    } else {
+                        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayCounter).padStart(2, '0')}`;
+                        
+                        let cellClasses = [];
+                        if (dateKey === todayKey) cellClasses.push('today');
+                        if (dateKey === selectedDateKey) cellClasses.push('selected');
+                        let classStr = cellClasses.join(' ');
+                        
+                        let eventBadgesHtml = '';
+                        if (eventsData[dateKey]) {
+                            const evList = Object.keys(eventsData[dateKey]).map(id => ({
+                                id: id,
+                                ...eventsData[dateKey][id]
+                            }));
+                            evList.sort((a, b) => a.time.localeCompare(b.time));
+                            
+                            evList.forEach(evt => {
+                                eventBadgesHtml += `<div class="event-badge">[${evt.time}] ${evt.text}</div>`;
+                            });
+                        }
+
+                        dateHtml += `<td class="${classStr}" onclick="selectDate('${dateKey}')">
+                            <div>${dayCounter}</div>
+                            ${eventBadgesHtml}
+                        </td>`;
+                        dayCounter++;
+                    }
+                }
+                dateHtml += '</tr>';
+                if (dayCounter > lastDate && i >= 4) break;
+            }
+            calendarBody.innerHTML = dateHtml;
+        }
+
+        function openModal() {
+            document.getElementById('modalOverlay').classList.add('active');
+            document.getElementById('eventTime').value = '';
+            document.getElementById('eventText').value = '';
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        function closeModalOutside(event) {
+            if(event.target.id === 'modalOverlay') {
+                closeModal();
+            }
+        }
+
+        function selectDate(dateKey) {
+            selectedDateKey = dateKey;
+            document.getElementById('formDateTitle').innerText = `${dateKey} 일정 관리`;
+            renderCalendar();
+            openModal();
+            renderSelectedEventsList();
+        }
+
+        function renderSelectedEventsList() {
+            const listSection = document.getElementById('selectedEventsList');
+            const container = document.getElementById('listContainer');
+            container.innerHTML = '';
+
+            if (!selectedDateKey || !eventsData[selectedDateKey]) {
+                listSection.style.display = 'none';
+                return;
+            }
+
+            const evList = Object.keys(eventsData[selectedDateKey]).map(id => ({
+                id: id,
+                ...eventsData[selectedDateKey][id]
+            }));
+
+            if (evList.length === 0) {
+                listSection.style.display = 'none';
+                return;
+            }
+
+            listSection.style.display = 'block';
+            evList.sort((a, b) => a.time.localeCompare(b.time));
+
+            evList.forEach(evt => {
+                const item = document.createElement('div');
+                item.className = 'saved-event-item';
+                
+                item.innerHTML = `
+                    <div class="saved-event-info">
+                        <span class="saved-event-time">${evt.time}</span>
+                        <span>${evt.text}</span>
+                    </div>
+                    <button class="btn-mini-delete" onclick="deleteEventItem('${evt.id}')">삭제</button>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function saveEvent(event) {
+            event.preventDefault();
+            if (!selectedDateKey) return alert('날짜를 먼저 선택해 주세요!');
+
+            const timeValue = document.getElementById('eventTime').value;
+            const textValue = document.getElementById('eventText').value;
+
+            database.ref(`events/${selectedDateKey}`).push({
+                time: timeValue,
+                text: textValue
+            }).then(() => {
+                alert('일정이 실시간 저장되었습니다.');
+                document.getElementById('eventTime').value = '';
+                document.getElementById('eventText').value = '';
+            }).catch((err) => {
+                alert('저장 실패: ' + err.message);
+            });
+        }
+
+        function deleteEventItem(eventId) {
+            if (!selectedDateKey || !eventsData[selectedDateKey]) return;
+
+            const pwInput = prompt('일정을 삭제하려면 관리자 비밀번호를 입력하세요:');
+            
+            if (pwInput === "0118") {
+                database.ref(`events/${selectedDateKey}/${eventId}`).remove()
+                .then(() => {
+                    alert('일정이 성공적으로 삭제되었습니다.');
+                }).catch((err) => {
+                    alert('삭제 실패: ' + err.message);
+                });
+            } else if (pwInput !== null) {
+                alert('비밀번호가 틀렸습니다!');
+            }
+        }
+
+        function moveMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            renderCalendar();
+            selectedDateKey = null;
+        }
+
+        renderCalendar();
+    </script>
+</body>
+</html>
